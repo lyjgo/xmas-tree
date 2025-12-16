@@ -2,16 +2,15 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Grand Luxury Tree Final v2</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     
-    <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Luxury Tree">
-    <link rel="apple-touch-icon" href="icon.png">
+    <meta name="apple-mobile-web-app-title" content="Grand Luxury Tree">
     <meta name="theme-color" content="#000000">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3600/3600931.png">
 
+    <title>Grand Luxury Tree Final v2</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000000; font-family: 'Times New Roman', serif; }
         #canvas-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
@@ -157,6 +156,17 @@
         import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'; 
         import { FilesetResolver, HandLandmarker } from '@mediapipe/tasks-vision';
 
+        // --- 修改点 3: 预加载图片配置 ---
+        // 在这里填写你想要默认显示的照片 URL。
+        // 可以是网上的链接 (https://...)，也可以是同目录下的文件路径 (./photos/1.jpg)
+        const PRELOAD_IMAGES = [
+            // 示例： "https://images.unsplash.com/photo-1543589077-47d81606c1bf?w=500&q=80",
+            // 示例： "./my-photo-1.jpg",
+            'photos/1.jpg',
+            'photos/2.jpg',
+            'photos/3.jpg'
+        ];
+
         // --- CONFIGURATION ---
         const CONFIG = {
             colors: {
@@ -184,6 +194,17 @@
             rotation: { x: 0, y: 0 } 
         };
 
+        // --- Mouse Interaction State ---
+        const MOUSE = {
+            dragging: false,
+            lastX: 0,
+            lastY: 0
+        };
+
+        const raycaster = new THREE.Raycaster();
+        const mouseNDC = new THREE.Vector2();
+
+
         let scene, camera, renderer, composer;
         let mainGroup; 
         let clock = new THREE.Clock();
@@ -200,6 +221,7 @@
             createParticles(); 
             createDust();     
             createDefaultPhotos();
+            loadPreloadedImages(); // 修改点 4: 初始化时加载预设图片
             setupPostProcessing();
             setupEvents();
             await initMediaPipe();
@@ -473,50 +495,44 @@
             }
         }
 
-        // --- 修改开始：支持预设照片和默认回退逻辑 ---
         function createDefaultPhotos() {
-            // 请在此处列出你希望提前上传的照片路径
-            // 确保这些文件存在于服务器的相应目录下
-            const presetImages = [
-                './photos/1.jpg', 
-                './photos/2.jpg',
-                './photos/3.jpg'
-                // 你可以添加更多，例如 './img/photo4.jpg',
-            ];
-
-            const textureLoader = new THREE.TextureLoader();
-
-            if (presetImages.length === 0) {
-                // 如果没有配置预设图片，则回退到默认的文字 Canvas 纹理
-                const canvas = document.createElement('canvas');
-                canvas.width = 512; canvas.height = 512;
-                const ctx = canvas.getContext('2d');
-                ctx.fillStyle = '#050505'; ctx.fillRect(0,0,512,512);
-                ctx.strokeStyle = '#eebb66'; ctx.lineWidth = 15; ctx.strokeRect(20,20,472,472);
-                ctx.font = '500 60px Times New Roman'; ctx.fillStyle = '#eebb66';
-                ctx.textAlign = 'center'; 
-                ctx.fillText("JOYEUX", 256, 230);
-                ctx.fillText("NOEL", 256, 300);
-                
-                const tex = new THREE.CanvasTexture(canvas);
-                tex.colorSpace = THREE.SRGBColorSpace;
-                addPhotoToScene(tex);
-            } else {
-                // 加载预设的图片
-                presetImages.forEach(url => {
-                    textureLoader.load(
-                        url, 
-                        (texture) => {
-                            texture.colorSpace = THREE.SRGBColorSpace;
-                            addPhotoToScene(texture);
-                        },
-                        undefined, 
-                        (err) => { console.error('Error loading image:', url); }
-                    );
-                });
-            }
+            const canvas = document.createElement('canvas');
+            canvas.width = 512; canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#050505'; ctx.fillRect(0,0,512,512);
+            ctx.strokeStyle = '#eebb66'; ctx.lineWidth = 15; ctx.strokeRect(20,20,472,472);
+            ctx.font = '500 60px Times New Roman'; ctx.fillStyle = '#eebb66';
+            ctx.textAlign = 'center'; 
+            ctx.fillText("JOYEUX", 256, 230);
+            ctx.fillText("NOEL", 256, 300);
+            
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.colorSpace = THREE.SRGBColorSpace;
+            addPhotoToScene(tex);
         }
-        // --- 修改结束 ---
+
+        // --- 修改点 5: 实现加载预设图片的功能 ---
+        function loadPreloadedImages() {
+            if (!PRELOAD_IMAGES || PRELOAD_IMAGES.length === 0) return;
+            
+            const loader = new THREE.TextureLoader();
+            // 设置跨域，以允许加载不同域名的图片（如 Imgur, Unsplash 等）
+            loader.setCrossOrigin('anonymous');
+
+            PRELOAD_IMAGES.forEach(url => {
+                loader.load(
+                    url, 
+                    (tex) => {
+                        tex.colorSpace = THREE.SRGBColorSpace;
+                        addPhotoToScene(tex);
+                    },
+                    undefined,
+                    (err) => {
+                        console.warn('Failed to load image:', url);
+                    }
+                );
+            });
+        }
 
         function addPhotoToScene(texture) {
             const frameGeo = new THREE.BoxGeometry(1.4, 1.4, 0.05);
@@ -524,7 +540,7 @@
             const frame = new THREE.Mesh(frameGeo, frameMat);
 
             const photoGeo = new THREE.PlaneGeometry(1.2, 1.2);
-            const photoMat = new THREE.MeshBasicMaterial({ map: texture });
+            const photoMat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide }); // 确保双面可见
             const photo = new THREE.Mesh(photoGeo, photoMat);
             photo.position.z = 0.04;
 
@@ -640,6 +656,63 @@
                     if (controls) controls.classList.toggle('ui-hidden');
                 }
             });
+
+            // Mouse Interactions
+            renderer.domElement.addEventListener('dblclick', () => {
+                if (STATE.mode === 'TREE') {
+                    STATE.mode = 'SCATTER';
+                } else if (STATE.mode === 'SCATTER') {
+                    STATE.mode = 'TREE';
+                }
+                STATE.focusTarget = null;
+            });
+
+            renderer.domElement.addEventListener('mousedown', (e) => {
+                if (STATE.mode !== 'SCATTER') return;
+                MOUSE.dragging = true;
+                MOUSE.lastX = e.clientX;
+                MOUSE.lastY = e.clientY;
+            });
+
+            renderer.domElement.addEventListener('mousemove', (e) => {
+                if (!MOUSE.dragging || STATE.mode !== 'SCATTER') return;
+
+                const dx = e.clientX - MOUSE.lastX;
+                const dy = e.clientY - MOUSE.lastY;
+
+                STATE.rotation.y += dx * 0.005;
+                STATE.rotation.x += dy * 0.005;
+
+                MOUSE.lastX = e.clientX;
+                MOUSE.lastY = e.clientY;
+            });
+
+            window.addEventListener('mouseup', () => {
+                MOUSE.dragging = false;
+            });
+
+            renderer.domElement.addEventListener('click', (e) => {
+                if (STATE.mode !== 'SCATTER' && STATE.mode !== 'FOCUS') return;
+
+                mouseNDC.x = (e.clientX / window.innerWidth) * 2 - 1;
+                mouseNDC.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+                raycaster.setFromCamera(mouseNDC, camera);
+
+                const photoMeshes = particleSystem
+                    .filter(p => p.type === 'PHOTO')
+                    .map(p => p.mesh);
+
+                const intersects = raycaster.intersectObjects(photoMeshes, true);
+
+                if (intersects.length > 0 && STATE.mode === 'SCATTER') {
+                    STATE.mode = 'FOCUS';
+                    STATE.focusTarget = intersects[0].object.parent;
+                } else if (STATE.mode === 'FOCUS') {
+                    STATE.mode = 'SCATTER';
+                    STATE.focusTarget = null;
+                }
+            });
         }
 
         function animate() {
@@ -672,4 +745,3 @@
     </script>
 </body>
 </html>
-
