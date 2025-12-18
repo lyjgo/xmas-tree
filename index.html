@@ -96,6 +96,10 @@
         <h1>Merry Christmas</h1>
     </div>
 
+    <audio id="bg-music" loop>
+        <source src="music.mp3" type="audio/mpeg">
+    </audio>
+
     <div id="webcam-wrapper">
         <video id="webcam" autoplay playsinline style="display:none;"></video>
         <canvas id="webcam-preview"></canvas>
@@ -173,6 +177,7 @@
             loadPreloadedImages(); 
             setupPostProcessing();
             setupEvents();
+            setupAudio();
             await initMediaPipe();
             
             const loader = document.getElementById('loader');
@@ -663,6 +668,29 @@
             });
         }
 
+        // --- 新增：音频控制逻辑 ---
+        function setupAudio() {
+            const audio = document.getElementById('bg-music');
+            // 设置音量 (0.0 到 1.0)，0.4 比较适合背景音乐，不吵
+            audio.volume = 0.4; 
+
+            // 定义播放函数
+            const playAudio = () => {
+                audio.play().then(() => {
+                    // 播放成功后，移除监听器，避免重复触发
+                    document.removeEventListener('click', playAudio);
+                    document.removeEventListener('touchstart', playAudio);
+                    console.log("Music started!");
+                }).catch(err => {
+                    console.log("Autoplay prevented:", err);
+                });
+            };
+
+            // 监听用户的第一次点击或触摸
+            document.addEventListener('click', playAudio);
+            document.addEventListener('touchstart', playAudio);
+        }
+
         function animate() {
             requestAnimationFrame(animate);
             const dt = clock.getDelta();
@@ -693,4 +721,5 @@
     </script>
 </body>
 </html>
+
 
