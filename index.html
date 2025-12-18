@@ -96,10 +96,6 @@
         <h1>Merry Christmas</h1>
     </div>
 
-    <audio id="bg-music" loop>
-        <source src="music.mp3" type="audio/mpeg">
-    </audio>
-
     <div id="webcam-wrapper">
         <video id="webcam" autoplay playsinline style="display:none;"></video>
         <canvas id="webcam-preview"></canvas>
@@ -177,7 +173,7 @@
             loadPreloadedImages(); 
             setupPostProcessing();
             setupEvents();
-            setupAudio();
+            // setupAudio();
             await initMediaPipe();
             
             const loader = document.getElementById('loader');
@@ -478,19 +474,46 @@
         }
 
         function addPhotoToScene(texture) {
-            const frameGeo = new THREE.BoxGeometry(1.4, 1.4, 0.05);
-            const frameMat = new THREE.MeshStandardMaterial({ color: CONFIG.colors.champagneGold, metalness: 1.0, roughness: 0.1 });
+            // 1. 计算宽高比 (Aspect Ratio)
+            //以此保持图片原始比例
+            const img = texture.image;
+            let width = 1.2;
+            let height = 1.2;
+
+            if (img.width && img.height) {
+                const aspect = img.width / img.height;
+                // 如果是横图 (宽 > 高)
+                if (aspect > 1) {
+                    height = width / aspect; 
+                } 
+                // 如果是竖图 (高 > 宽)
+                else {
+                    width = height * aspect;
+                }
+            }
+
+            // 2. 根据比例创建相框 (Frame)
+            // 边框稍微比图片大一点点 (比如 +0.2)
+            const frameGeo = new THREE.BoxGeometry(width + 0.2, height + 0.2, 0.05);
+            const frameMat = new THREE.MeshStandardMaterial({ 
+                color: CONFIG.colors.champagneGold, 
+                metalness: 1.0, 
+                roughness: 0.1 
+            });
             const frame = new THREE.Mesh(frameGeo, frameMat);
 
-            const photoGeo = new THREE.PlaneGeometry(1.2, 1.2);
-            const photoMat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide }); 
+            // 3. 根据比例创建照片平面 (Photo)
+            const photoGeo = new THREE.PlaneGeometry(width, height);
+            const photoMat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
             const photo = new THREE.Mesh(photoGeo, photoMat);
-            photo.position.z = 0.04;
+            photo.position.z = 0.04; // 让照片稍微凸出一点，避免与相框重叠
 
+            // 4. 组合
             const group = new THREE.Group();
             group.add(frame);
             group.add(photo);
             
+            // 整体缩放一下，避免太大
             const s = 0.8;
             group.scale.set(s,s,s);
             
@@ -668,24 +691,6 @@
             });
         }
 
-        // --- 新增：音频控制逻辑 ---
-        function setupAudio() {
-            const audio = document.getElementById('bg-music');
-            // 设置音量 (0.0 到 1.0)，0.4 比较适合背景音乐，不吵
-            audio.volume = 0.4; 
-
-            // 定义播放函数
-            const playAudio = () => {
-                audio.play().then(() => {
-                    // 播放成功后，移除监听器，避免重复触发
-                    document.removeEventListener('click', playAudio);
-                    document.removeEventListener('touchstart', playAudio);
-                    console.log("Music started!");
-                }).catch(err => {
-                    console.log("Autoplay prevented:", err);
-                });
-            };
-
             // 监听用户的第一次点击或触摸
             document.addEventListener('click', playAudio);
             document.addEventListener('touchstart', playAudio);
@@ -721,5 +726,6 @@
     </script>
 </body>
 </html>
+
 
 
