@@ -710,22 +710,38 @@
             webcamCtx = webcamCanvas.getContext('2d');
             webcamCanvas.width = 160; webcamCanvas.height = 120;
 
-            const vision = await FilesetResolver.forVisionTasks(
-                "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
-            );
-            handLandmarker = await HandLandmarker.createFromOptions(vision, {
-                baseOptions: {
-                    modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,
-                    delegate: "GPU"
-                },
-                runningMode: "VIDEO",
-                numHands: 1
-            });
+            // 1. 尝试加载 MediaPipe 模型
+            try {
+                const vision = await FilesetResolver.forVisionTasks(
+                    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
+                );
+                handLandmarker = await HandLandmarker.createFromOptions(vision, {
+                    baseOptions: {
+                        modelAssetPath: `./hand_landmarker.task`,
+                        delegate: "GPU"
+                    },
+                    runningMode: "VIDEO",
+                    numHands: 1
+                });
+            } catch (error) {
+                console.warn("MediaPipe model failed to load (Network issue?):", error);
+                return; // 模型加载失败，直接返回，不影响 3D
+            }
             
+            // 2. 尝试打开摄像头
             if (navigator.mediaDevices?.getUserMedia) {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                video.srcObject = stream;
-                video.addEventListener("loadeddata", predictWebcam);
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    video.srcObject = stream;
+                    video.addEventListener("loadeddata", predictWebcam);
+                } catch (err) {
+                    // --- 关键修改：捕获摄像头错误 ---
+                    console.warn("Webcam not found or permission denied. Hand gestures disabled.");
+                    // 这里不抛出错误，仅仅是在控制台打印警告
+                    // 程序会继续运行，只是没有手势控制
+                }
+            } else {
+                console.warn("Browser does not support getUserMedia.");
             }
         }
 
@@ -891,3 +907,4 @@
     </script>
 </body>
 </html>
+
