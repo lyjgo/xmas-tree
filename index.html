@@ -11,16 +11,14 @@
     <meta name="theme-color" content="#000000">
     
     <link rel="manifest" href="manifest.json">
-    
-    // <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3600/3600931.png">
     <link rel="apple-touch-icon" href="icon-192.png">
 
-    <title>Grand Luxury Tree Final v4 (Mobile Touch Fix)</title>
+    <title>Grand Luxury Tree Final v6 (Music Player)</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000000; font-family: 'Times New Roman', serif; }
-        #canvas-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; touch-action: none; /* 禁止浏览器默认触摸动作 */ }
+        #canvas-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; touch-action: none; }
         
-        /* UI Overlay */
+        /* UI 层 */
         #ui-layer {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             z-index: 10; pointer-events: none;
@@ -28,6 +26,111 @@
             align-items: center;
             padding-top: 40px;
             box-sizing: border-box;
+        }
+
+        /* 标题 */
+        h1 { 
+            color: #fceea7; font-size: 56px; margin: 0; font-weight: 400; 
+            letter-spacing: 6px; 
+            text-shadow: 0 0 50px rgba(252, 238, 167, 0.6); 
+            background: linear-gradient(to bottom, #fff, #eebb66);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            font-family: 'Cinzel', 'Times New Roman', serif;
+            opacity: 0.9;
+        }
+
+        /* --- 音乐播放器样式 (新增) --- */
+        #music-container {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            pointer-events: auto; /* 允许点击 */
+            z-index: 20;
+            font-family: 'Cinzel', serif;
+        }
+
+        /* 播放器主显示框 */
+        .player-box {
+            display: flex;
+            align-items: center;
+            background: rgba(20, 20, 20, 0.6); 
+            border: 1px solid rgba(212, 175, 55, 0.4); 
+            backdrop-filter: blur(5px);
+            border-radius: 4px;
+            height: 36px;
+            transition: all 0.3s;
+        }
+        .player-box:hover {
+            border-color: rgba(212, 175, 55, 0.8);
+            box-shadow: 0 0 10px rgba(212, 175, 55, 0.2);
+        }
+
+        /* 歌曲名称 */
+        .current-song {
+            color: #d4af37;
+            font-size: 12px;
+            letter-spacing: 1px;
+            padding: 0 15px;
+            white-space: nowrap;
+            text-transform: uppercase;
+            min-width: 100px;
+            text-align: center;
+        }
+
+        /* 下拉按钮 */
+        .playlist-btn {
+            height: 100%;
+            width: 36px;
+            border-left: 1px solid rgba(212, 175, 55, 0.3);
+            background: transparent;
+            color: #d4af37;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            transition: background 0.2s;
+        }
+        .playlist-btn:hover {
+            background: rgba(212, 175, 55, 0.2);
+        }
+
+        /* 下拉菜单列表 */
+        #playlist-menu {
+            position: absolute;
+            top: 40px;
+            right: 0;
+            width: 100%;
+            min-width: 180px;
+            background: rgba(10, 10, 10, 0.9);
+            border: 1px solid rgba(212, 175, 55, 0.4);
+            border-radius: 4px;
+            display: none; /* 默认隐藏 */
+            flex-direction: column;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+        
+        .playlist-item {
+            padding: 10px 15px;
+            color: #aa8844;
+            font-size: 11px;
+            letter-spacing: 1px;
+            cursor: pointer;
+            text-transform: uppercase;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.2s;
+        }
+        .playlist-item:last-child { border-bottom: none; }
+        .playlist-item:hover {
+            background: rgba(212, 175, 55, 0.15);
+            color: #fceea7;
+            padding-left: 20px; /* 悬停时轻微右移效果 */
+        }
+        .playlist-item.active {
+            color: #fceea7;
+            background: rgba(212, 175, 55, 0.1);
+            font-weight: bold;
         }
 
         /* Loading */
@@ -48,24 +151,12 @@
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        /* Typography */
-        h1 { 
-            color: #fceea7; font-size: 56px; margin: 0; font-weight: 400; 
-            letter-spacing: 6px; 
-            text-shadow: 0 0 50px rgba(252, 238, 167, 0.6); 
-            background: linear-gradient(to bottom, #fff, #eebb66);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-            font-family: 'Cinzel', 'Times New Roman', serif;
-            opacity: 0.9;
-        }
-
-        /* Webcam feedback */
+        /* Webcam */
         #webcam-wrapper {
             position: absolute; bottom: 40px; right: 40px;
             width: 120px; height: 90px;
             border: 1px solid rgba(255,255,255,0.1);
-            overflow: hidden; opacity: 0; 
-            pointer-events: none;
+            overflow: hidden; opacity: 0; pointer-events: none;
         }
     </style>
     
@@ -94,11 +185,18 @@
 
     <div id="ui-layer">
         <h1>Merry Christmas</h1>
+        
+        <div id="music-container">
+            <div class="player-box">
+                <span id="current-song-name" class="current-song">Loading...</span>
+                <button id="playlist-toggle-btn" class="playlist-btn">▼</button>
+            </div>
+            <div id="playlist-menu">
+                </div>
+        </div>
     </div>
 
-    <audio id="bg-music" loop>
-        <source src="music.mp3" type="audio/mpeg">
-    </audio>
+    <audio id="bg-music" loop></audio>
 
     <div id="webcam-wrapper">
         <video id="webcam" autoplay playsinline style="display:none;"></video>
@@ -114,12 +212,20 @@
         import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'; 
         import { FilesetResolver, HandLandmarker } from '@mediapipe/tasks-vision';
 
+        // --- 1. 歌曲列表配置 ---
+        // 请在此处修改你的歌曲路径和显示的名称
+        const SONG_LIST = [
+            { name: "Jingle Bells", src: "./songs/1.m4a", type: "audio/mp4" },
+            { name: "Silent Night", src: "./songs/2.m4a", type: "audio/mp4" },
+            { name: "Last Christmas", src: "./songs/3.m4a", type: "audio/mp4" }
+        ];
+        
         // --- 图片预加载配置 ---
         const PRELOAD_IMAGES = [
-             // 示例： "./photo1.jpg",
-            "./photos/1.jpg",
-            "./photos/2.jpg",
-            "./photos/3.jpg"
+             // "./photo1.jpg",
+            './photos/1.jpg',
+            './photos/2.jpg',
+            './photos/3.jpg'
         ];
 
         // --- CONFIGURATION ---
@@ -146,7 +252,9 @@
             focusIndex: -1, 
             focusTarget: null,
             hand: { detected: false, x: 0, y: 0 },
-            rotation: { x: 0, y: 0 } 
+            rotation: { x: 0, y: 0 },
+            currentSongIndex: 0, // 当前播放歌曲索引
+            isPlaying: false
         };
 
         const MOUSE = {
@@ -177,7 +285,7 @@
             loadPreloadedImages(); 
             setupPostProcessing();
             setupEvents();
-            setupAudio();
+            setupMusicPlayer(); // --- 初始化音乐播放器 ---
             await initMediaPipe();
             
             const loader = document.getElementById('loader');
@@ -185,6 +293,86 @@
             setTimeout(() => loader.remove(), 800);
 
             animate();
+        }
+
+        // --- 音乐播放器逻辑 ---
+        function setupMusicPlayer() {
+            const audio = document.getElementById('bg-music');
+            const nameDisplay = document.getElementById('current-song-name');
+            const toggleBtn = document.getElementById('playlist-toggle-btn');
+            const menu = document.getElementById('playlist-menu');
+            
+            // 1. 初始化播放列表 UI
+            SONG_LIST.forEach((song, index) => {
+                const item = document.createElement('div');
+                item.className = 'playlist-item';
+                item.innerText = song.name;
+                item.onclick = () => playSong(index);
+                menu.appendChild(item);
+            });
+
+            // 2. 加载第一首歌（但不自动播放，等待交互）
+            loadSong(0);
+
+            // 3. UI 交互逻辑
+            toggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); // 防止冒泡触发其他点击
+                const isHidden = menu.style.display === 'none' || menu.style.display === '';
+                menu.style.display = isHidden ? 'flex' : 'none';
+                toggleBtn.innerText = isHidden ? '▲' : '▼';
+            });
+
+            // 点击其他地方关闭菜单
+            window.addEventListener('click', () => {
+                menu.style.display = 'none';
+                toggleBtn.innerText = '▼';
+            });
+
+            // 4. 播放控制函数
+            function loadSong(index) {
+                if (index < 0 || index >= SONG_LIST.length) return;
+                
+                STATE.currentSongIndex = index;
+                const song = SONG_LIST[index];
+                
+                audio.src = song.src;
+                // 如果是 m4a 文件，最好把 type 也设置下，虽然大部分浏览器能自动识别
+                // audio.type = song.type; 
+
+                nameDisplay.innerText = song.name;
+                
+                // 更新列表高亮
+                const items = document.querySelectorAll('.playlist-item');
+                items.forEach((el, i) => {
+                    if (i === index) el.classList.add('active');
+                    else el.classList.remove('active');
+                });
+            }
+
+            function playSong(index) {
+                loadSong(index);
+                audio.play().then(() => {
+                    STATE.isPlaying = true;
+                }).catch(err => {
+                    console.log("Play failed (waiting for interaction):", err);
+                });
+            }
+
+            // 5. 全局“首次交互”监听，触发播放
+            const startAudioOnInteraction = () => {
+                if (!STATE.isPlaying) {
+                    audio.volume = 0.4;
+                    audio.play().then(() => {
+                        STATE.isPlaying = true;
+                        // 移除监听器
+                        document.removeEventListener('click', startAudioOnInteraction);
+                        document.removeEventListener('touchstart', startAudioOnInteraction);
+                    }).catch(() => {});
+                }
+            };
+            
+            document.addEventListener('click', startAudioOnInteraction);
+            document.addEventListener('touchstart', startAudioOnInteraction);
         }
 
         function initThree() {
@@ -478,26 +666,20 @@
         }
 
         function addPhotoToScene(texture) {
-            // 1. 计算宽高比 (Aspect Ratio)
-            //以此保持图片原始比例
+            // 自动计算宽高比，防止变形
             const img = texture.image;
             let width = 1.2;
             let height = 1.2;
 
             if (img.width && img.height) {
                 const aspect = img.width / img.height;
-                // 如果是横图 (宽 > 高)
                 if (aspect > 1) {
                     height = width / aspect; 
-                } 
-                // 如果是竖图 (高 > 宽)
-                else {
+                } else {
                     width = height * aspect;
                 }
             }
 
-            // 2. 根据比例创建相框 (Frame)
-            // 边框稍微比图片大一点点 (比如 +0.2)
             const frameGeo = new THREE.BoxGeometry(width + 0.2, height + 0.2, 0.05);
             const frameMat = new THREE.MeshStandardMaterial({ 
                 color: CONFIG.colors.champagneGold, 
@@ -506,18 +688,15 @@
             });
             const frame = new THREE.Mesh(frameGeo, frameMat);
 
-            // 3. 根据比例创建照片平面 (Photo)
             const photoGeo = new THREE.PlaneGeometry(width, height);
             const photoMat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
             const photo = new THREE.Mesh(photoGeo, photoMat);
-            photo.position.z = 0.04; // 让照片稍微凸出一点，避免与相框重叠
+            photo.position.z = 0.04;
 
-            // 4. 组合
             const group = new THREE.Group();
             group.add(frame);
             group.add(photo);
             
-            // 整体缩放一下，避免太大
             const s = 0.8;
             group.scale.set(s,s,s);
             
@@ -531,23 +710,38 @@
             webcamCtx = webcamCanvas.getContext('2d');
             webcamCanvas.width = 160; webcamCanvas.height = 120;
 
-            const vision = await FilesetResolver.forVisionTasks(
-                "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
-            );
-            handLandmarker = await HandLandmarker.createFromOptions(vision, {
-                baseOptions: {
-                    // modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,
-                    modelAssetPath: `./hand_landmarker.task`,
-                    delegate: "GPU"
-                },
-                runningMode: "VIDEO",
-                numHands: 1
-            });
+            // 1. 尝试加载 MediaPipe 模型
+            try {
+                const vision = await FilesetResolver.forVisionTasks(
+                    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
+                );
+                handLandmarker = await HandLandmarker.createFromOptions(vision, {
+                    baseOptions: {
+                        modelAssetPath: `./hand_landmarker.task`,
+                        delegate: "GPU"
+                    },
+                    runningMode: "VIDEO",
+                    numHands: 1
+                });
+            } catch (error) {
+                console.warn("MediaPipe model failed to load (Network issue?):", error);
+                return; // 模型加载失败，直接返回，不影响 3D
+            }
             
+            // 2. 尝试打开摄像头
             if (navigator.mediaDevices?.getUserMedia) {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                video.srcObject = stream;
-                video.addEventListener("loadeddata", predictWebcam);
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    video.srcObject = stream;
+                    video.addEventListener("loadeddata", predictWebcam);
+                } catch (err) {
+                    // --- 关键修改：捕获摄像头错误 ---
+                    console.warn("Webcam not found or permission denied. Hand gestures disabled.");
+                    // 这里不抛出错误，仅仅是在控制台打印警告
+                    // 程序会继续运行，只是没有手势控制
+                }
+            } else {
+                console.warn("Browser does not support getUserMedia.");
             }
         }
 
@@ -603,7 +797,7 @@
                 composer.setSize(window.innerWidth, window.innerHeight);
             });
 
-            // --- 1. 双击切换模式 (PC & Mobile) ---
+            // Double Click
             renderer.domElement.addEventListener('dblclick', () => {
                 if (STATE.mode === 'TREE') {
                     STATE.mode = 'SCATTER';
@@ -613,7 +807,7 @@
                 STATE.focusTarget = null;
             });
 
-            // --- 2. 鼠标控制逻辑 (PC) ---
+            // PC Mouse
             renderer.domElement.addEventListener('mousedown', (e) => {
                 if (STATE.mode !== 'SCATTER') return;
                 MOUSE.dragging = true;
@@ -623,13 +817,10 @@
 
             renderer.domElement.addEventListener('mousemove', (e) => {
                 if (!MOUSE.dragging || STATE.mode !== 'SCATTER') return;
-
                 const dx = e.clientX - MOUSE.lastX;
                 const dy = e.clientY - MOUSE.lastY;
-
                 STATE.rotation.y += dx * 0.005;
                 STATE.rotation.x += dy * 0.005;
-
                 MOUSE.lastX = e.clientX;
                 MOUSE.lastY = e.clientY;
             });
@@ -638,10 +829,9 @@
                 MOUSE.dragging = false;
             });
 
-            // --- 3. 触摸控制逻辑 (新增 for Mobile) ---
+            // Mobile Touch
             renderer.domElement.addEventListener('touchstart', (e) => {
                 if (STATE.mode !== 'SCATTER') return;
-                // 仅当单指触摸时启用旋转，防止与双指缩放等手势冲突
                 if (e.touches.length === 1) {
                     MOUSE.dragging = true;
                     MOUSE.lastX = e.touches[0].clientX;
@@ -651,16 +841,11 @@
 
             renderer.domElement.addEventListener('touchmove', (e) => {
                 if (!MOUSE.dragging || STATE.mode !== 'SCATTER') return;
-                
-                // 关键：阻止浏览器默认的滚动行为
                 e.preventDefault(); 
-
                 const dx = e.touches[0].clientX - MOUSE.lastX;
                 const dy = e.touches[0].clientY - MOUSE.lastY;
-
                 STATE.rotation.y += dx * 0.005;
                 STATE.rotation.x += dy * 0.005;
-
                 MOUSE.lastX = e.touches[0].clientX;
                 MOUSE.lastY = e.touches[0].clientY;
             }, { passive: false });
@@ -669,22 +854,19 @@
                 MOUSE.dragging = false;
             });
 
-
-            // --- 4. 点击选中照片 (PC & Mobile) ---
+            // Click for Focus
             renderer.domElement.addEventListener('click', (e) => {
-                if (STATE.mode !== 'SCATTER' && STATE.mode !== 'FOCUS') return;
+                // 如果点击了音乐播放器，不进行 3D 聚焦
+                if (e.target.closest('#music-container')) return;
 
+                if (STATE.mode !== 'SCATTER' && STATE.mode !== 'FOCUS') return;
                 mouseNDC.x = (e.clientX / window.innerWidth) * 2 - 1;
                 mouseNDC.y = -(e.clientY / window.innerHeight) * 2 + 1;
-
                 raycaster.setFromCamera(mouseNDC, camera);
-
                 const photoMeshes = particleSystem
                     .filter(p => p.type === 'PHOTO')
                     .map(p => p.mesh);
-
                 const intersects = raycaster.intersectObjects(photoMeshes, true);
-
                 if (intersects.length > 0 && STATE.mode === 'SCATTER') {
                     STATE.mode = 'FOCUS';
                     STATE.focusTarget = intersects[0].object.parent;
@@ -693,29 +875,6 @@
                     STATE.focusTarget = null;
                 }
             });
-        }
-
-        // --- 新增：音频控制逻辑 ---
-        function setupAudio() {
-            const audio = document.getElementById('bg-music');
-            // 设置音量 (0.0 到 1.0)，0.4 比较适合背景音乐，不吵
-            audio.volume = 0.4; 
-
-            // 定义播放函数
-            const playAudio = () => {
-                audio.play().then(() => {
-                    // 播放成功后，移除监听器，避免重复触发
-                    document.removeEventListener('click', playAudio);
-                    document.removeEventListener('touchstart', playAudio);
-                    console.log("Music started!");
-                }).catch(err => {
-                    console.log("Autoplay prevented:", err);
-                });
-            };
-
-            // 监听用户的第一次点击或触摸
-            document.addEventListener('click', playAudio);
-            document.addEventListener('touchstart', playAudio);
         }
 
         function animate() {
@@ -748,6 +907,3 @@
     </script>
 </body>
 </html>
-
-
-
