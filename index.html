@@ -212,6 +212,15 @@
         import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'; 
         import { FilesetResolver, HandLandmarker } from '@mediapipe/tasks-vision';
 
+        // --- 【新增】注册 Service Worker ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then((reg) => console.log('Service Worker 注册成功:', reg.scope))
+                    .catch((err) => console.log('Service Worker 注册失败:', err));
+            });
+        }
+
         // --- 1. 歌曲列表配置 ---
         // 请在此处修改你的歌曲路径和显示的名称
         const SONG_LIST = [
@@ -953,6 +962,7 @@
     </script>
 </body>
 </html>
+
 
 
 
